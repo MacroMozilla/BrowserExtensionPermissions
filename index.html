@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BrowserExtensionPermissions</title>
+<meta name="description" content="Every browser extension permission in Firefox and Chrome: what it unlocks, support, install prompts, optional requests.">
+<style>
+:root{
+  --bg:#13151a; --panel:#1b1e25; --line:#292d37; --fg:#d8dbe3; --dim:#868c9b; --accent:#e8875a;
+  --ok:#5fbf86; --no:#e06c6c; --warn:#e2b04f;
+  --mono:ui-monospace,"SF Mono",Consolas,monospace; --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){:root{--bg:#f6f6f8;--panel:#ebecf0;--line:#d5d7dd;--fg:#1c1f27;--dim:#5f6574;--accent:#bf5628;--ok:#2b8a50;--no:#c23b3b;--warn:#946600;color-scheme:light}}
+*{box-sizing:border-box}
+html{overscroll-behavior:none}
+body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.45 var(--sans)}
+header{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;padding:10px max(16px,env(safe-area-inset-right)) 10px max(16px,env(safe-area-inset-left));border-bottom:1px solid var(--line)}
+h1{font-size:16px;margin:0;font-weight:600}
+.count{color:var(--dim);font-variant-numeric:tabular-nums}
+.filters{display:flex;gap:12px;flex-wrap:wrap}
+.filters label{display:flex;gap:5px;align-items:center;cursor:pointer;white-space:nowrap}
+.filters input{accent-color:var(--accent);margin:0}
+.src{margin-left:auto;color:var(--dim);font-size:12px}
+.src a{color:var(--accent)}
+main{padding:0 max(16px,env(safe-area-inset-right)) 32px max(16px,env(safe-area-inset-left))}
+.wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:860px}
+th,td{border-bottom:1px solid var(--line);padding:5px 10px;text-align:left;vertical-align:top}
+thead th{position:sticky;top:0;background:var(--panel);color:var(--dim);font-weight:500;font-size:12px;white-space:nowrap}
+td.cat{background:var(--panel);font-weight:600;white-space:nowrap;border-right:1px solid var(--line)}
+td.cat span{position:sticky;top:90px}
+code{font-family:var(--mono);font-size:12px;color:var(--accent);white-space:nowrap}
+.c{text-align:center;white-space:nowrap}
+.y{color:var(--ok)} .n{color:var(--no)} .w{color:var(--warn)} .d{color:var(--dim)}
+.note{display:block;color:var(--dim);font-size:11px;white-space:normal;max-width:180px;margin:0 auto}
+tbody tr:hover td:not(.cat){background:color-mix(in oklab,var(--accent) 9%,transparent)}
+</style>
+</head>
+<body>
+<header>
+  <h1>BrowserExtensionPermissions</h1>
+  <span class="count" id="count"></span>
+  <div class="filters" title="Tick one or more to show only those; none ticked shows all">
+    <label><input type="checkbox" value="both"> Both</label>
+    <label><input type="checkbox" value="ff"> Firefox only</label>
+    <label><input type="checkbox" value="ch"> Chrome only</label>
+  </div>
+  <span class="src">Sources: <a href="https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/permissions">MDN</a> · <a href="https://github.com/mdn/browser-compat-data">browser-compat-data</a> · <a href="https://developer.chrome.com/docs/extensions/reference/permissions-list">Chrome</a> · <a href="https://github.com/MacroMozilla/BrowserExtensionPermissions">GitHub</a></span>
+</header>
+<main><div class="wrap"><table>
+<thead><tr>
+  <th>Category</th><th>Permission</th><th>What it unlocks</th>
+  <th class="c">Firefox</th><th class="c">Chrome</th>
+  <th class="c" title="Whether Firefox shows this permission to the user when the extension is installed">Firefox install prompt</th>
+  <th class="c" title="Whether it can go in optional_permissions and be requested at runtime with permissions.request()">Optional</th>
+</tr></thead>
+<tbody id="rows"></tbody>
+</table></div></main>
+<script>
+// [category, permission, what it unlocks, firefox, chrome, firefox install prompt, optional]
+// support: true | false | "note" (supported with a caveat) | ["note"] (not supported, with a note)
+const DATA = [
+["Site access","<all_urls> / match patterns","Cross-origin fetch, inject scripts and CSS, read tab URL and title, see webRequest events, read cookies (with cookies). In MV3 goes in host_permissions",true,true,1,1],
+["Site access","activeTab","Temporary access to the current tab after the user clicks the extension's button, menu or shortcut",true,true,0,1],
+["Site access","scripting","Inject scripts and CSS, register content scripts at runtime","MV3 API, Firefox 102+","MV3 only",0,1],
+
+["Tabs","tabs","Read URL, title and favicon of every tab",true,true,1,1],
+["Tabs","tabHide","Hide and show tabs",true,false,1,1],
+["Tabs","tabGroups","Create and edit tab groups","Firefox 139+",true,0,1],
+["Tabs","sessions","List and restore recently closed tabs and windows",true,true,1,1],
+["Tabs","contextualIdentities","Manage container tabs (separate identities per tab)",true,false,0,0],
+["Tabs","tabCapture","Capture the audio and video of a tab",false,true,0,1],
+["Tabs","desktopCapture","Capture the screen, a window or a tab via a picker",false,true,0,1],
+
+["Network","webRequest","Observe every network request: URL, headers, status",true,true,0,1],
+["Network","webRequestBlocking","Block, modify and redirect requests and headers","Still works in MV3",["MV3: policy-installed extensions only"],0,1],
+["Network","webRequestFilterResponse","Read and rewrite response bodies (filterResponseData)",true,false,0,1],
+["Network","webRequestFilterResponse.serviceWorkerScript","Same, for a site's service worker script",true,false,0,1],
+["Network","webRequestAuthProvider","Answer HTTP and proxy auth challenges (onAuthRequired), MV3","Firefox 126+","Chrome 108+",0,0],
+["Network","declarativeNetRequest","Rule-based blocking, header edits and redirects (ad-blocker style)","Firefox 113+",true,1,1],
+["Network","declarativeNetRequestFeedback","See which rules matched","Firefox 113+","Unpacked extensions only",1,1],
+["Network","declarativeNetRequestWithHostAccess","Rules apply only to sites with host permission; no blocking warning","Firefox 113+",true,0,1],
+
+["Proxy & connection","proxy","Pick a proxy per request (proxy.onRequest) or change proxy settings","Per-request proxy.onRequest","Settings only, no per-request",1,1],
+["Proxy & connection","dns","Resolve a hostname to IP addresses",true,["Chrome Dev channel only"],0,0],
+["Proxy & connection","captivePortal","Detect a Wi-Fi login (captive portal) network",true,false,0,0],
+
+["Browsing data","cookies","Read and write cookies (also needs host permission)",true,true,0,1],
+["Browsing data","history","Read, add and delete browsing history",true,true,1,1],
+["Browsing data","bookmarks","Read, create, edit and delete bookmarks",true,true,1,1],
+["Browsing data","topSites","Read most visited sites",true,true,1,1],
+["Browsing data","browsingData","Clear cache, cookies, history, downloads and more",true,true,1,1],
+["Browsing data","webNavigation","Know when each page and frame starts, finishes and navigates",true,true,1,1],
+["Browsing data","pageCapture","Save a page as MHTML",false,true,0,1],
+["Browsing data","readingList","Read and edit the reading list",false,true,0,1],
+["Browsing data","favicon","Fetch site favicons",false,"MV3 only",0,1],
+
+["Downloads & clipboard","downloads","Start, pause, cancel downloads; read the download list",true,true,1,1],
+["Downloads & clipboard","downloads.open","Open a downloaded file",true,true,1,1],
+["Downloads & clipboard","clipboardRead","Read the clipboard",true,true,1,1],
+["Downloads & clipboard","clipboardWrite","Write to the clipboard",true,true,1,1],
+
+["Storage","storage","Extension storage: local, sync across devices, session",true,true,0,0],
+["Storage","unlimitedStorage","No quota on storage.local; persistent IndexedDB without a prompt",true,true,0,0],
+["Storage","userScripts","Run user-written scripts (userscript managers)","Optional-only: request it at runtime, alone","Chrome 120+",1,1],
+
+["UI","menus / contextMenus","Add items to page, tab and bookmark context menus","menus; contextMenus is an alias","contextMenus only",0,1],
+["UI","menus.overrideContext","Replace the whole context menu on the extension's own pages",true,false,0,0],
+["UI","notifications","Show system notifications",true,true,1,1],
+["UI","theme","Change the browser theme colors and images",true,false,0,0],
+["UI","find","Find and highlight text in a page",true,false,1,1],
+["UI","sidePanel","Show the extension in Chrome's side panel","Uses sidebar_action, no permission","Chrome 114+",0,0],
+["UI","tts / ttsEngine","Speak text; provide a text-to-speech engine",false,true,0,0],
+["UI","fontSettings","Change font settings",false,true,0,1],
+
+["Browser settings","browserSettings","Change browser settings (new tab, cache, zoom, link behavior)",true,false,1,1],
+["Browser settings","privacy","Change privacy settings (WebRTC, tracking protection, prefetch)",true,true,1,1],
+["Browser settings","contentSettings","Per-site settings (cookies, JavaScript, images)",false,true,0,1],
+["Browser settings","search","Use a search engine; Firefox can also list engines",true,"search.query() only",0,1],
+["Browser settings","management","List, enable and disable other extensions",true,true,1,1],
+
+["System & device","nativeMessaging","Talk to a native app on the computer (files, commands go through it)",true,true,1,1],
+["System & device","pkcs11","Install security modules (smart cards, hardware certificates)",true,false,1,1],
+["System & device","geolocation","Get location without a prompt each time",true,true,1,1],
+["System & device","idle","Know whether the computer is idle or locked",true,true,0,1],
+["System & device","identity","Open an OAuth sign-in window and get a token",true,true,0,0],
+["System & device","power","Keep the system or display awake",false,true,0,1],
+["System & device","system.cpu / memory / display / storage","Read CPU, memory, display and storage info",false,true,0,1],
+["System & device","printing","Print and list printers",false,"ChromeOS only",0,1],
+
+["Background & dev","alarms","Wake the extension on a schedule",true,true,0,0],
+["Background & dev","background","Keep running after the last window closes",["Accepted, no effect"],true,0,1],
+["Background & dev","offscreen","Open a hidden document for DOM, audio or clipboard work in MV3",false,"Chrome 109+",0,0],
+["Background & dev","devtools","Add a panel to developer tools (granted by devtools_page)","Implied by devtools_page","devtools_page, no keyword needed",1,1],
+["Background & dev","debugger","Chrome DevTools Protocol on tabs",false,true,0,1],
+["Background & dev","declarativeContent","Show the action based on page content without reading the page",false,true,0,1],
+["Background & dev","publicSuffix","Find a domain's registrable part (e.g. example.co.uk)","New",false,0,1],
+];
+
+const esc=s=>s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const cell=v=>{
+  if(v===true) return '<td class="c y" title="Supported">✓</td>';
+  if(v===false) return '<td class="c n" title="Not supported">✗</td>';
+  if(Array.isArray(v)) return `<td class="c n">✗<span class="note">${esc(v[0])}</span></td>`;
+  return `<td class="c y">✓<span class="note">${esc(v)}</span></td>`;
+};
+const has=v=>v===true||typeof v==="string";
+const kind=r=>has(r[3])&&has(r[4])?"both":has(r[3])?"ff":"ch";
+const boxes=[...document.querySelectorAll(".filters input")];
+function render(){
+  const on=boxes.filter(b=>b.checked).map(b=>b.value);
+  const rows=DATA.filter(r=>!on.length||on.includes(kind(r)));
+  const span={}; rows.forEach(r=>span[r[0]]=(span[r[0]]||0)+1);
+  const seen={}; let h="";
+  for(const r of rows){
+    h+="<tr>";
+    if(!seen[r[0]]){seen[r[0]]=1;h+=`<td class="cat" rowspan="${span[r[0]]}"><span>${esc(r[0])}</span></td>`;}
+    h+=`<td>${r[1].split(" / ").map(p=>`<code>${esc(p)}</code>`).join(" / ")}</td><td>${esc(r[2])}</td>${cell(r[3])}${cell(r[4])}`;
+    h+=has(r[3])?(r[5]?'<td class="c w">Prompt</td>':'<td class="c d">Silent</td>'):'<td class="c d">—</td>';
+    h+=r[6]?'<td class="c y">✓</td>':'<td class="c d">✗</td>';
+    h+="</tr>";
+  }
+  document.getElementById("rows").innerHTML=h;
+  document.getElementById("count").textContent=`${rows.length} of ${DATA.length}`;
+}
+boxes.forEach(b=>b.addEventListener("change",render));
+render();
+</script>
+</body>
+</html>
