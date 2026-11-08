@@ -35,6 +35,14 @@ code{font-family:var(--mono);font-size:12px;color:var(--accent);white-space:nowr
 .c{text-align:center;white-space:nowrap}
 .y{color:var(--ok)} .n{color:var(--no)} .w{color:var(--warn)} .d{color:var(--dim)}
 .note{display:block;color:var(--dim);font-size:11px;white-space:normal;max-width:180px;margin:0 auto}
+.lang{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim);cursor:pointer;user-select:none}
+.lang input{position:absolute;opacity:0;width:0;height:0}
+.lang .track{position:relative;width:34px;height:18px;border-radius:9px;background:var(--line);transition:background .15s}
+.lang .track::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--fg);transition:transform .15s}
+.lang input:checked+.lang-en+.track{background:var(--accent)}
+.lang input:checked+.lang-en+.track::after{transform:translateX(16px)}
+.lang input:focus-visible+.lang-en+.track{outline:2px solid var(--accent);outline-offset:2px}
+.lang input:not(:checked)+.lang-en,.lang input:checked~.lang-zh{color:var(--fg);font-weight:600}
 tbody tr:hover td:not(.cat){background:color-mix(in oklab,var(--accent) 9%,transparent)}
 </style>
 </head>
@@ -42,19 +50,20 @@ tbody tr:hover td:not(.cat){background:color-mix(in oklab,var(--accent) 9%,trans
 <header>
   <h1>BrowserExtensionPermissions</h1>
   <span class="count" id="count"></span>
-  <div class="filters" title="Tick one or more to show only those; none ticked shows all">
-    <label><input type="checkbox" value="both"> Both</label>
-    <label><input type="checkbox" value="ff"> Firefox only</label>
-    <label><input type="checkbox" value="ch"> Chrome only</label>
+  <div class="filters" data-i18n-title="Tick one or more to show only those; none ticked shows all" title="Tick one or more to show only those; none ticked shows all">
+    <label><input type="checkbox" value="both"> <span data-i18n="Both">Both</span></label>
+    <label><input type="checkbox" value="ff"> <span data-i18n="Firefox only">Firefox only</span></label>
+    <label><input type="checkbox" value="ch"> <span data-i18n="Chrome only">Chrome only</span></label>
   </div>
-  <span class="src">Sources: <a href="https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/permissions">MDN</a> · <a href="https://github.com/mdn/browser-compat-data">browser-compat-data</a> · <a href="https://developer.chrome.com/docs/extensions/reference/permissions-list">Chrome</a> · <a href="https://github.com/MacroMozilla/BrowserExtensionPermissions">GitHub</a></span>
+  <span class="src"><span data-i18n="Sources:">Sources:</span> <a href="https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/permissions">MDN</a> · <a href="https://github.com/mdn/browser-compat-data">browser-compat-data</a> · <a href="https://developer.chrome.com/docs/extensions/reference/permissions-list">Chrome</a> · <a href="https://github.com/MacroMozilla/BrowserExtensionPermissions">GitHub</a></span>
+  <label class="lang" title="English / 中文"><input type="checkbox" id="lang" aria-label="中文 / Chinese"><span class="lang-en">EN</span><span class="track"></span><span class="lang-zh">中文</span></label>
 </header>
 <main><div class="wrap"><table>
 <thead><tr>
-  <th>Category</th><th>Permission</th><th>What it unlocks</th>
+  <th data-i18n="Category">Category</th><th data-i18n="Permission">Permission</th><th data-i18n="What it unlocks">What it unlocks</th>
   <th class="c">Firefox</th><th class="c">Chrome</th>
-  <th class="c" title="Whether Firefox shows this permission to the user when the extension is installed">Firefox install prompt</th>
-  <th class="c" title="Whether it can go in optional_permissions and be requested at runtime with permissions.request()">Optional</th>
+  <th class="c" data-i18n="Firefox install prompt" data-i18n-title="Whether Firefox shows this permission to the user when the extension is installed" title="Whether Firefox shows this permission to the user when the extension is installed">Firefox install prompt</th>
+  <th class="c" data-i18n="Optional" data-i18n-title="Whether it can go in optional_permissions and be requested at runtime with permissions.request()" title="Whether it can go in optional_permissions and be requested at runtime with permissions.request()">Optional</th>
 </tr></thead>
 <tbody id="rows"></tbody>
 </table></div></main>
@@ -139,12 +148,104 @@ const DATA = [
 ["Background & dev","publicSuffix","Find a domain's registrable part (e.g. example.co.uk)","New",false,0,1],
 ];
 
+// Chinese translations, keyed by the English text above. Missing keys fall back to English.
+const ZH = {
+// UI
+"Sources:":"来源：","Both":"两者都支持","Firefox only":"仅 Firefox","Chrome only":"仅 Chrome",
+"Tick one or more to show only those; none ticked shows all":"勾选一项或多项只显示对应权限；都不勾选则显示全部",
+"Category":"分类","Permission":"权限","What it unlocks":"可以做什么","Firefox install prompt":"Firefox 安装提示","Optional":"可选",
+"Whether Firefox shows this permission to the user when the extension is installed":"安装扩展时 Firefox 是否向用户显示此权限",
+"Whether it can go in optional_permissions and be requested at runtime with permissions.request()":"能否放入 optional_permissions 并在运行时通过 permissions.request() 申请",
+"Supported":"支持","Not supported":"不支持","Prompt":"提示","Silent":"静默",
+// Categories
+"Site access":"网站访问","Tabs":"标签页","Network":"网络","Proxy & connection":"代理与连接","Browsing data":"浏览数据",
+"Downloads & clipboard":"下载与剪贴板","Storage":"存储","UI":"界面","Browser settings":"浏览器设置",
+"System & device":"系统与设备","Background & dev":"后台与开发",
+// What it unlocks
+"Cross-origin fetch, inject scripts and CSS, read tab URL and title, see webRequest events, read cookies (with cookies). In MV3 goes in host_permissions":"跨域请求，注入脚本和 CSS，读取标签页 URL 和标题，查看 webRequest 事件，读取 Cookie（需配合 cookies）。MV3 中写在 host_permissions 里",
+"Temporary access to the current tab after the user clicks the extension's button, menu or shortcut":"用户点击扩展按钮、菜单或快捷键后，临时获得当前标签页的访问权限",
+"Inject scripts and CSS, register content scripts at runtime":"注入脚本和 CSS，运行时注册内容脚本",
+"Read URL, title and favicon of every tab":"读取所有标签页的 URL、标题和图标",
+"Hide and show tabs":"隐藏和显示标签页",
+"Create and edit tab groups":"创建和编辑标签页分组",
+"List and restore recently closed tabs and windows":"列出并恢复最近关闭的标签页和窗口",
+"Manage container tabs (separate identities per tab)":"管理容器标签页（每个标签页独立身份）",
+"Capture the audio and video of a tab":"捕获标签页的音频和视频",
+"Capture the screen, a window or a tab via a picker":"通过选择器捕获屏幕、窗口或标签页",
+"Observe every network request: URL, headers, status":"观察所有网络请求：URL、请求头、状态码",
+"Block, modify and redirect requests and headers":"拦截、修改和重定向请求及请求头",
+"Read and rewrite response bodies (filterResponseData)":"读取和改写响应正文（filterResponseData）",
+"Same, for a site's service worker script":"同上，作用于网站的 Service Worker 脚本",
+"Answer HTTP and proxy auth challenges (onAuthRequired), MV3":"响应 HTTP 和代理身份验证质询（onAuthRequired），MV3",
+"Rule-based blocking, header edits and redirects (ad-blocker style)":"基于规则的拦截、请求头修改和重定向（广告拦截器式）",
+"See which rules matched":"查看命中了哪些规则",
+"Rules apply only to sites with host permission; no blocking warning":"规则仅作用于有主机权限的网站；不显示拦截警告",
+"Pick a proxy per request (proxy.onRequest) or change proxy settings":"为每个请求选择代理（proxy.onRequest）或更改代理设置",
+"Resolve a hostname to IP addresses":"将主机名解析为 IP 地址",
+"Detect a Wi-Fi login (captive portal) network":"检测需要登录的 Wi-Fi（强制门户）网络",
+"Read and write cookies (also needs host permission)":"读写 Cookie（还需要主机权限）",
+"Read, add and delete browsing history":"读取、添加和删除浏览历史",
+"Read, create, edit and delete bookmarks":"读取、创建、编辑和删除书签",
+"Read most visited sites":"读取最常访问的网站",
+"Clear cache, cookies, history, downloads and more":"清除缓存、Cookie、历史记录、下载记录等",
+"Know when each page and frame starts, finishes and navigates":"获知每个页面和框架何时开始加载、完成和跳转",
+"Save a page as MHTML":"将页面保存为 MHTML",
+"Read and edit the reading list":"读取和编辑阅读清单",
+"Fetch site favicons":"获取网站图标",
+"Start, pause, cancel downloads; read the download list":"开始、暂停、取消下载；读取下载列表",
+"Open a downloaded file":"打开已下载的文件",
+"Read the clipboard":"读取剪贴板",
+"Write to the clipboard":"写入剪贴板",
+"Extension storage: local, sync across devices, session":"扩展存储：本地、跨设备同步、会话",
+"No quota on storage.local; persistent IndexedDB without a prompt":"storage.local 无配额限制；无需提示即可持久化 IndexedDB",
+"Run user-written scripts (userscript managers)":"运行用户编写的脚本（用户脚本管理器）",
+"Add items to page, tab and bookmark context menus":"向页面、标签页和书签的右键菜单添加菜单项",
+"Replace the whole context menu on the extension's own pages":"在扩展自身页面上替换整个右键菜单",
+"Show system notifications":"显示系统通知",
+"Change the browser theme colors and images":"更改浏览器主题颜色和图片",
+"Find and highlight text in a page":"在页面中查找并高亮文本",
+"Show the extension in Chrome's side panel":"在 Chrome 侧边栏中显示扩展",
+"Speak text; provide a text-to-speech engine":"朗读文本；提供文字转语音引擎",
+"Change font settings":"更改字体设置",
+"Change browser settings (new tab, cache, zoom, link behavior)":"更改浏览器设置（新标签页、缓存、缩放、链接行为）",
+"Change privacy settings (WebRTC, tracking protection, prefetch)":"更改隐私设置（WebRTC、跟踪保护、预加载）",
+"Per-site settings (cookies, JavaScript, images)":"按网站设置（Cookie、JavaScript、图片）",
+"Use a search engine; Firefox can also list engines":"使用搜索引擎；Firefox 还能列出所有引擎",
+"List, enable and disable other extensions":"列出、启用和禁用其他扩展",
+"Talk to a native app on the computer (files, commands go through it)":"与电脑上的本地应用通信（可经由它访问文件、执行命令）",
+"Install security modules (smart cards, hardware certificates)":"安装安全模块（智能卡、硬件证书）",
+"Get location without a prompt each time":"获取位置信息，无需每次弹出提示",
+"Know whether the computer is idle or locked":"获知电脑是否空闲或已锁定",
+"Open an OAuth sign-in window and get a token":"打开 OAuth 登录窗口并获取令牌",
+"Keep the system or display awake":"阻止系统或屏幕休眠",
+"Read CPU, memory, display and storage info":"读取 CPU、内存、显示器和存储信息",
+"Print and list printers":"打印并列出打印机",
+"Wake the extension on a schedule":"按计划定时唤醒扩展",
+"Keep running after the last window closes":"关闭最后一个窗口后继续运行",
+"Open a hidden document for DOM, audio or clipboard work in MV3":"在 MV3 中打开隐藏文档，用于 DOM、音频或剪贴板操作",
+"Add a panel to developer tools (granted by devtools_page)":"在开发者工具中添加面板（由 devtools_page 授予）",
+"Chrome DevTools Protocol on tabs":"在标签页上使用 Chrome DevTools 协议",
+"Show the action based on page content without reading the page":"根据页面内容显示扩展按钮，无需读取页面",
+"Find a domain's registrable part (e.g. example.co.uk)":"获取域名的可注册部分（如 example.co.uk）",
+// Support notes
+"MV3 API, Firefox 102+":"MV3 API，Firefox 102+","MV3 only":"仅 MV3","Still works in MV3":"MV3 中仍可用",
+"MV3: policy-installed extensions only":"MV3：仅限策略安装的扩展","Unpacked extensions only":"仅限未打包的扩展",
+"Per-request proxy.onRequest":"按请求 proxy.onRequest","Settings only, no per-request":"仅设置，不支持按请求",
+"Chrome Dev channel only":"仅 Chrome Dev 渠道","Optional-only: request it at runtime, alone":"仅可选：须在运行时单独申请",
+"menus; contextMenus is an alias":"menus；contextMenus 是别名","contextMenus only":"仅 contextMenus",
+"Uses sidebar_action, no permission":"使用 sidebar_action，无需权限","search.query() only":"仅 search.query()",
+"ChromeOS only":"仅 ChromeOS","Accepted, no effect":"可声明，但无效果","Implied by devtools_page":"由 devtools_page 隐含",
+"devtools_page, no keyword needed":"devtools_page，无需声明关键字","New":"新增",
+};
+let lang="en";
+const t=s=>lang==="zh"&&ZH[s]||s;
+
 const esc=s=>s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
 const cell=v=>{
-  if(v===true) return '<td class="c y" title="Supported">✓</td>';
-  if(v===false) return '<td class="c n" title="Not supported">✗</td>';
-  if(Array.isArray(v)) return `<td class="c n">✗<span class="note">${esc(v[0])}</span></td>`;
-  return `<td class="c y">✓<span class="note">${esc(v)}</span></td>`;
+  if(v===true) return `<td class="c y" title="${t("Supported")}">✓</td>`;
+  if(v===false) return `<td class="c n" title="${t("Not supported")}">✗</td>`;
+  if(Array.isArray(v)) return `<td class="c n">✗<span class="note">${esc(t(v[0]))}</span></td>`;
+  return `<td class="c y">✓<span class="note">${esc(t(v))}</span></td>`;
 };
 const has=v=>v===true||typeof v==="string";
 const kind=r=>has(r[3])&&has(r[4])?"both":has(r[3])?"ff":"ch";
@@ -156,17 +257,31 @@ function render(){
   const seen={}; let h="";
   for(const r of rows){
     h+="<tr>";
-    if(!seen[r[0]]){seen[r[0]]=1;h+=`<td class="cat" rowspan="${span[r[0]]}"><span>${esc(r[0])}</span></td>`;}
-    h+=`<td>${r[1].split(" / ").map(p=>`<code>${esc(p)}</code>`).join(" / ")}</td><td>${esc(r[2])}</td>${cell(r[3])}${cell(r[4])}`;
-    h+=has(r[3])?(r[5]?'<td class="c w">Prompt</td>':'<td class="c d">Silent</td>'):'<td class="c d">—</td>';
+    if(!seen[r[0]]){seen[r[0]]=1;h+=`<td class="cat" rowspan="${span[r[0]]}"><span>${esc(t(r[0]))}</span></td>`;}
+    h+=`<td>${r[1].split(" / ").map(p=>`<code>${esc(p)}</code>`).join(" / ")}</td><td>${esc(t(r[2]))}</td>${cell(r[3])}${cell(r[4])}`;
+    h+=has(r[3])?(r[5]?`<td class="c w">${t("Prompt")}</td>`:`<td class="c d">${t("Silent")}</td>`):'<td class="c d">—</td>';
     h+=r[6]?'<td class="c y">✓</td>':'<td class="c d">✗</td>';
     h+="</tr>";
   }
   document.getElementById("rows").innerHTML=h;
-  document.getElementById("count").textContent=`${rows.length} of ${DATA.length}`;
+  document.getElementById("count").textContent=lang==="zh"?`${rows.length} / ${DATA.length}`:`${rows.length} of ${DATA.length}`;
 }
 boxes.forEach(b=>b.addEventListener("change",render));
-render();
+const langBox=document.getElementById("lang");
+function setLang(l){
+  lang=l; langBox.checked=l==="zh";
+  document.documentElement.lang=l==="zh"?"zh-CN":"en";
+  document.querySelectorAll("[data-i18n]").forEach(e=>e.textContent=t(e.dataset.i18n));
+  document.querySelectorAll("[data-i18n-title]").forEach(e=>e.title=t(e.dataset.i18nTitle));
+  render();
+}
+langBox.addEventListener("change",()=>{
+  const l=langBox.checked?"zh":"en";
+  try{localStorage.setItem("lang",l)}catch(e){}
+  setLang(l);
+});
+let saved=null; try{saved=localStorage.getItem("lang")}catch(e){}
+setLang(saved||(/^zh/i.test(navigator.language||"")?"zh":"en"));
 </script>
 </body>
 </html>
